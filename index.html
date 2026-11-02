@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shardfall — Beta 0.1.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./rosebud-game-defaults.css" />
+    <script src="./rosebud-game-defaults.js" defer></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "peerjs": "https://esm.sh/peerjs@1.5.4"
+        }
+      }
+    </script>
+    <style>
+      html, body { width:100%; height:100%; min-height:100%; margin:0; padding:0; background:#050505; overflow:hidden; }
+      body { min-height:100vh; min-height:100dvh; touch-action:none; font-family:'Press Start 2P',monospace; color:#eee; }
+      #game-container { position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+      canvas { display: block; image-rendering: pixelated; }
+      #craft { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(5, 7, 12, .72); }
+      .inventory-window { width: min(1080px, 96vw); max-height: 92vh; overflow: hidden; background: linear-gradient(145deg, #40352b, #211b18 68%); border: 5px solid #75614b; box-shadow: 0 0 0 4px #120e0c, 0 18px 70px #000; padding: 18px; color: #eee; }
+      .inventory-header { display:flex; align-items:center; justify-content:space-between; border-bottom: 2px solid #69533d; padding: 0 0 12px; margin-bottom: 14px; }
+      .inventory-header h3 { margin: 0; color: #f3c56b; font-size: 14px; }
+      #stationStatus { display:block; margin-top: 8px; color:#b8a58d; font-size:8px; }
+      #closeInventory { padding: 6px 12px; font: inherit; color:#fff; background:#32251d; border:2px solid #8d6d4e; cursor:pointer; }
+      .inventory-body { display:grid; grid-template-columns: 1.2fr .8fr; gap:24px; min-height:0; }
+      .inventory-section-title { margin: 4px 0 10px; color:#d9c5a8; font-size:9px; }
+      .inventory-grid { display:grid; grid-template-columns:repeat(9, minmax(42px, 1fr)); gap:6px; }
+      .inventory-hotbar { display:grid; grid-template-columns:repeat(9, minmax(42px, 1fr)); gap:6px; margin-top:8px; }
+      .inv-slot { position:relative; aspect-ratio:1; min-width:0; padding:4px; background:linear-gradient(145deg,#171514,#28221e); border:2px solid #594a3b; box-shadow: inset 2px 2px 0 rgba(255,255,255,.07), inset -2px -2px 0 rgba(0,0,0,.5); cursor:pointer; }
+      .inv-slot:hover { border-color:#d8b66f; background:#392f25; }
+      .inv-slot.selected { outline:3px solid #ffe08a; outline-offset:1px; border-color:#ffe08a; }
+      .inv-slot img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; pointer-events:none; }
+      .inv-slot .stack { position:absolute; right:3px; bottom:1px; color:#fff; font-size:9px; text-shadow:2px 2px #000; pointer-events:none; }
+      .inv-slot .slot-num { position:absolute; left:3px; top:2px; color:#9d8d7b; font-size:7px; pointer-events:none; }
+      .inventory-hint { color:#9d8d7b; font-size:8px; line-height:1.8; margin-top:12px; }
+      .craft-recipes { max-height:62vh; overflow-y:auto; padding-right:5px; }
+      .craft-recipes h3 { margin:4px 0 10px; color:#f3c56b; font-size:12px; }
+      .rec { display:flex; align-items:center; gap:8px; padding:7px; margin-bottom:6px; text-align:left; width:100%; font:inherit; color:#eee; background:#261f19; border:2px solid #51412e; cursor:pointer; line-height:1.6; }
+      .rec img { flex:none; width:40px; height:40px; object-fit:contain; image-rendering:pixelated; }
+      .rec.ok { border-color:#8bc34a; }
+      .rec.no { opacity:.48; }
+      .rec .recipe-copy { font-size:8px; }
+      .rec .recipe-name { color:#f5d89c; font-size:9px; }
+      @media (max-width: 700px) { #craft { padding:8px; } .inventory-body { grid-template-columns:1fr; overflow-y:auto; max-height:78vh; } .inventory-grid,.inventory-hotbar { gap:3px; } .inventory-window { padding:10px; } .craft-recipes { max-height:32vh; } }
+      .overlay:not(#menu) { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,5,12,.88); text-align: center; gap: 18px; }
+      .overlay h1 { color: #b48cff; font-size: 44px; margin: 0; text-shadow: 4px 4px #000; }
+      .overlay p { max-width: 760px; font-size: 11px; line-height: 2; color: #ccc; }
+      .overlay input { font-family: inherit; font-size: 12px; padding: 8px; width: 220px; background: #111; color: #fff; border: 2px solid #555; }
+      .btn { font-family: inherit; font-size: 13px; padding: 12px 20px; background: #3b2a5a; color: #fff; border: 3px solid #b48cff; cursor: pointer; }
+      .btn:hover { background: #5a3f88; }
+      .hidden { display: none !important; }
+      .perk { width: 230px; min-height: 150px; font-size: 10px; line-height: 1.8; }
+      .perk b { display: block; color: #ffe08a; font-size: 12px; margin-bottom: 10px; }
+      #menu.menu-screen { position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center; overflow:auto; color:#f4ecd9; background:#080b16; }
+      #menu.menu-screen::before, #menu.menu-screen::after { content:""; position:absolute; inset:0; pointer-events:none; }
+      #menu.menu-screen::before { background:url("assets/shardfall-menu-skyline.webp") center 55% / cover no-repeat; transform:scale(1.025); animation: menu-drift 28s ease-in-out infinite alternate; }
+      #menu.menu-screen::after { background:linear-gradient(90deg,rgba(6,9,18,.78) 0%,rgba(8,10,18,.50) 48%,rgba(7,9,17,.48) 100%),linear-gradient(0deg,rgba(5,7,12,.82),transparent 48%,rgba(5,7,14,.35)); }
+      @keyframes menu-drift { from { transform:scale(1.025) translateX(-.25%); } to { transform:scale(1.055) translateX(.25%); } }
+      .menu-topbar { position:absolute; z-index:1; left:5.2vw; right:5.2vw; top:34px; display:flex; align-items:center; justify-content:space-between; }
+      .menu-mark { display:flex; align-items:center; gap:12px; color:#dfd3bc; font-size:9px; letter-spacing:.16em; }
+      .menu-mark-icon { display:grid; place-items:center; width:34px; height:34px; color:#f1d38a; border:1px solid rgba(232,195,90,.65); transform:rotate(45deg); font-size:14px; text-shadow:0 0 14px #c99b50; }
+      .menu-mark-icon span { transform:rotate(-45deg); }
+      .beta-tag { padding:10px 13px; color:#f3d798; border:1px solid rgba(234,194,112,.52); background:rgba(13,16,25,.48); font-size:8px; letter-spacing:.12em; box-shadow:0 8px 28px #0004; }
+      .beta-tag i { display:inline-block; width:7px; height:7px; margin-right:8px; border-radius:50%; background:#b9d985; box-shadow:0 0 12px #c6f08c; }
+      .menu-layout { position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1fr) minmax(350px,430px); align-items:center; gap:8vw; width:min(1420px,88vw); min-height:100%; padding:118px 0 82px; box-sizing:border-box; }
+      .menu-copy { max-width:800px; align-self:center; padding-bottom:20px; }
+      .menu-eyebrow { margin:0 0 20px; color:#e9c779; font-size:9px; line-height:1.8; letter-spacing:.24em; }
+      .menu-title { margin:0 0 14px; color:#f4e8ca; font-size:clamp(44px,5.8vw,104px); letter-spacing:.075em; line-height:1.08; text-shadow:0 5px 0 #271b22,0 12px 38px #000; }
+      .menu-subtitle { margin:0; color:#d8c6a4; font-family:Georgia,serif; font-size:clamp(17px,2vw,27px); font-style:italic; letter-spacing:.08em; text-shadow:0 2px 8px #000; }
+      .menu-divider { width: min(430px,80%); height:1px; margin:30px 0 22px; background:linear-gradient(90deg,#d5ad68,rgba(213,173,104,0)); }
+      .menu-description { max-width:620px; margin:0; color:#e1dfdb; font-family:Georgia,serif; font-size:clamp(16px,1.35vw,21px); line-height:1.65; text-shadow:0 2px 8px #000; }
+      .menu-quote { display:flex; align-items:center; gap:12px; margin-top:28px; color:#d7c8a8; font-size:8px; letter-spacing:.08em; }
+      .menu-quote::before { content:""; width:24px; height:1px; background:#e1bc72; }
+      .menu-card { width:100%; box-sizing:border-box; padding:30px; border:1px solid rgba(214,182,119,.48); outline:1px solid rgba(12,13,20,.8); outline-offset:5px; background:linear-gradient(145deg,rgba(17,20,29,.92),rgba(13,14,21,.89)); box-shadow:0 24px 80px #0008,inset 0 1px 0 #ffffff14; backdrop-filter:blur(12px); }
+      .menu-card-label { margin:0 0 20px; color:#c4b18d; font-size:8px; letter-spacing:.2em; }
+      .menu-actions { display:grid; gap:10px; }
+      .menu-button { position:relative; display:flex; align-items:center; justify-content:space-between; width:100%; min-height:54px; box-sizing:border-box; padding:0 17px; color:#e8dfce; background:rgba(255,255,255,.035); border:1px solid rgba(211,195,164,.25); font:inherit; font-size:10px; letter-spacing:.06em; text-align:left; cursor:pointer; transition:background .18s,border-color .18s,transform .18s,color .18s; }
+      .menu-button:hover, .menu-button:focus-visible { transform:translateX(3px); color:#fff5db; border-color:#ddbd78; background:rgba(215,177,102,.14); outline:none; }
+      .menu-button.primary { color:#211a13; border-color:#efcf85; background:linear-gradient(135deg,#f0d99d,#c59a50); box-shadow:0 5px 22px rgba(210,162,77,.18); }
+      .menu-button.primary:hover, .menu-button.primary:focus-visible { color:#130e09; border-color:#fff0c1; background:linear-gradient(135deg,#ffedbd,#d7ad5e); }
+      .menu-button .menu-button-note { color:inherit; opacity:.65; font-size:8px; }
+      .menu-seed { margin-top:20px; }
+      .menu-seed label { display:block; margin-bottom:9px; color:#b9b5ae; font-size:8px; letter-spacing:.1em; }
+      .menu-seed input { box-sizing:border-box; width:100%; height:42px; padding:0 13px; color:#f2e5cd; background:rgba(0,0,0,.32); border:1px solid rgba(207,190,158,.28); font:10px 'Press Start 2P',monospace; outline:none; }
+      .menu-seed input:focus { border-color:#d2ad68; box-shadow:0 0 0 2px #d2ad6822; }
+      .menu-records { min-height:30px; margin:16px 0 0; color:#d8c08c; font-size:7px; line-height:1.9; }
+      .menu-controls { position:absolute; z-index:1; bottom:28px; left:5.2vw; right:5.2vw; display:flex; align-items:center; justify-content:space-between; color:#c4c0b8; font-size:7px; letter-spacing:.06em; }
+      .menu-controls span { display:flex; align-items:center; gap:8px; }
+      .keycap { padding:6px 7px; color:#ece0c7; border:1px solid #f0d9a44d; background:#0c1019a8; font-size:7px; }
+      .menu-version { color:#a29a89; font-size:7px; letter-spacing:.12em; }
+      #settingsPanel { position:fixed; z-index:3; inset:0; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; background:rgba(3,5,10,.76); backdrop-filter:blur(7px); }
+      #multiplayerPanel { position:fixed; z-index:5; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; box-sizing:border-box; background:rgba(3,5,10,.82); backdrop-filter:blur(8px); }
+      .multiplayer-card { width:min(560px,100%); box-sizing:border-box; padding:28px; border:1px solid rgba(222,190,124,.58); background:linear-gradient(145deg,#1b1c24,#101119); box-shadow:0 24px 90px #000b; }
+      .multiplayer-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:16px; border-bottom:1px solid #c3a56844; }
+      .multiplayer-head h2 { margin:0; color:#f2dfb5; font-size:13px; }
+      .multiplayer-head p { margin:9px 0 0; color:#a9a39a; font:14px Georgia,serif; line-height:1.45; }
+      .multiplayer-close { width:34px; height:34px; color:#ead9b7; background:#ffffff08; border:1px solid #ffffff30; font:18px Georgia,serif; cursor:pointer; }
+      .multiplayer-label { display:block; margin:18px 0 8px; color:#c9b992; font-size:8px; letter-spacing:.12em; }
+      .multiplayer-input { width:100%; height:44px; box-sizing:border-box; padding:0 12px; color:#f2e5cd; background:#0b0d13; border:1px solid #77674d; font:10px 'Press Start 2P',monospace; }
+      .multiplayer-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+      .multiplayer-action { min-height:46px; padding:9px; color:#eee2c9; background:#29241e; border:1px solid #90754b; font:8px 'Press Start 2P',monospace; cursor:pointer; }
+      .multiplayer-action.primary { color:#211a13; border-color:#efcf85; background:linear-gradient(135deg,#f0d99d,#c59a50); }
+      .multiplayer-divider { margin:22px 0 0; padding-top:18px; border-top:1px solid #ffffff18; }
+      #multiplayerStatus { min-height:34px; margin:16px 0 0; color:#b9d985; font-size:8px; line-height:1.8; }
+      #roomCode { display:none; margin-top:12px; padding:12px; color:#ffe08a; border:1px dashed #d5b26888; font-size:9px; line-height:1.8; overflow-wrap:anywhere; }
+      #onlineBadge { position:fixed; z-index:17; top:14px; left:50%; transform:translateX(-50%); display:none; max-width:calc(100vw - 24px); padding:10px 13px; color:#e9d8af; border:1px solid #d4ba8077; background:rgba(11,13,18,.86); font:7px 'Press Start 2P',monospace; white-space:nowrap; cursor:pointer; }
+      #onlineBadge.visible { display:block; }
+      @media (max-width:700px) { .multiplayer-card { padding:20px; } .multiplayer-head h2 { font-size:10px; } .multiplayer-actions { grid-template-columns:1fr; } #onlineBadge { top:8px; font-size:6px; } }
+      .settings-card { width:min(540px,100%); max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); overflow-y:auto; overscroll-behavior:contain; box-sizing:border-box; padding:28px; border:1px solid rgba(222,190,124,.58); background:linear-gradient(145deg,#1b1c24,#101119); box-shadow:0 24px 90px #000b; }
+      .settings-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:18px; border-bottom:1px solid #c3a56844; }
+      .settings-header h2 { margin:0; color:#f2dfb5; font-size:15px; letter-spacing:.08em; }
+      .settings-header p { margin:9px 0 0; color:#a9a39a; font:14px Georgia,serif; }
+      .settings-close { width:34px; height:34px; color:#ead9b7; background:#ffffff08; border:1px solid #ffffff30; font:18px Georgia,serif; cursor:pointer; }
+      .setting-row { display:grid; grid-template-columns:1fr minmax(170px,220px); align-items:center; gap:18px; padding:18px 0; border-bottom:1px solid #ffffff12; }
+      .setting-name { display:block; color:#eee3d0; font-size:9px; }
+      .setting-help { display:block; margin-top:8px; color:#9f9b94; font:13px Georgia,serif; line-height:1.35; }
+      .setting-control { width:100%; box-sizing:border-box; color:#f1e7d4; }
+      select.setting-control { padding:11px 10px; border:1px solid #8a7555; background:#171923; font:9px 'Press Start 2P',monospace; }
+      input.setting-control[type="range"] { accent-color:#d5b268; }
+      .setting-value { display:block; margin-top:5px; color:#cfb77f; font-size:8px; text-align:right; }
+      .settings-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:20px; }
+      .settings-status { min-height:18px; color:#b9d985; font-size:7px; line-height:1.7; }
+      .settings-footer { margin-top:18px; color:#8d8b8d; font:12px Georgia,serif; line-height:1.5; }
+      .touch-controls { position:fixed; z-index:18; left:max(12px,env(safe-area-inset-left,0px)); right:max(12px,env(safe-area-inset-right,0px)); bottom:calc(12px + env(safe-area-inset-bottom,0px)); display:flex; align-items:flex-end; justify-content:space-between; pointer-events:none; user-select:none; -webkit-user-select:none; }
+      .touch-movement { display:grid; grid-template:repeat(3,46px) / repeat(3,46px); grid-template-areas:". up ." "left . right" ". down ."; gap:4px; padding:5px; border:1px solid #d4ba8045; border-radius:20px; background:rgba(9,12,18,.42); backdrop-filter:blur(5px); pointer-events:auto; }
+      .touch-actions { display:grid; grid-template-columns:repeat(3,44px); gap:5px; padding:6px; border:1px solid #d4ba8045; border-radius:18px; background:rgba(9,12,18,.42); backdrop-filter:blur(5px); pointer-events:auto; }
+      .touch-button { display:grid; place-items:center; box-sizing:border-box; min-width:42px; min-height:42px; padding:2px; color:#f1e4c8; border:1px solid rgba(225,198,142,.52); border-radius:12px; background:linear-gradient(145deg,rgba(75,62,45,.94),rgba(27,25,25,.95)); box-shadow:0 3px 8px #0008,inset 0 1px #ffffff22; font:7px 'Press Start 2P',monospace; text-shadow:1px 2px #000; cursor:pointer; touch-action:none; -webkit-tap-highlight-color:transparent; }
+      .touch-button:active,.touch-button.held { color:#fff1ba; border-color:#ffe08a; background:linear-gradient(145deg,#987643,#47351f); transform:translateY(1px); }
+      .touch-move { width:46px; height:46px; min-width:46px; min-height:46px; border-radius:14px; color:#f7e6c2; font:18px Arial,sans-serif; }
+      .touch-up { grid-area:up; } .touch-left { grid-area:left; } .touch-right { grid-area:right; } .touch-down { grid-area:down; }
+      .touch-actions .touch-action { color:#251a0d; border-color:#ffe08a; background:linear-gradient(145deg,#f2d68e,#bd8d42); text-shadow:none; }
+      @media (max-width: 380px) { .touch-controls { left:8px; right:8px; } .touch-movement { grid-template:repeat(3,40px) / repeat(3,40px); gap:3px; padding:4px; } .touch-move { width:40px; height:40px; min-width:40px; min-height:40px; } .touch-actions { grid-template-columns:repeat(3,38px); gap:4px; padding:4px; } .touch-button { min-width:38px; min-height:38px; font-size:6px; } }
+      @media (max-width: 900px) { .menu-layout { grid-template-columns:minmax(0,1fr) minmax(310px,370px); gap:4vw; width:90vw; } .menu-card { padding:24px; } .menu-title { letter-spacing:.02em; } }
+      @media (max-width: 700px) { #menu.menu-screen { align-items:flex-start; } .menu-topbar { left:22px; right:22px; top:20px; } .menu-mark { font-size:7px; } .beta-tag { font-size:7px; } .menu-layout { grid-template-columns:1fr; gap:24px; width:min(520px,calc(100% - 44px)); padding:105px 0 110px; } .menu-copy { padding:0; } .menu-eyebrow { margin-bottom:12px; } .menu-title { font-size:clamp(42px,13vw,68px); } .menu-divider { margin:18px 0 14px; } .menu-description { font-size:16px; } .menu-quote { margin-top:16px; } .menu-card { padding:20px; } .menu-controls { bottom:14px; left:20px; right:20px; align-items:flex-end; gap:12px; font-size:6px; } .menu-controls span { flex-wrap:wrap; max-width:70%; } .menu-version { text-align:right; } .settings-card { padding:20px; } .setting-row { grid-template-columns:1fr; gap:10px; padding:14px 0; } .setting-control { max-width:none; } .settings-header h2 { font-size:12px; } }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"><canvas id="game" width="1920" height="1080"></canvas></div>
+    <div id="craft" aria-label="Inventory and crafting">
+      <div class="inventory-window">
+        <div class="inventory-header"><div><h3>INVENTORY & CRAFTING</h3><span id="stationStatus">Hand crafting · no station nearby</span></div><button id="closeInventory" aria-label="Close inventory">✕</button></div>
+        <div class="inventory-body">
+          <section><div class="inventory-section-title">PACK · click an item to assign it to the selected quick slot</div><div id="inventoryGrid" class="inventory-grid"></div><div class="inventory-section-title" style="margin-top:16px">QUICK BAR · click a slot to select it</div><div id="inventoryHotbar" class="inventory-hotbar"></div><div class="inventory-hint">E / C close inventory · 1 campfire · 2 wall · 3 workbench · 4 forge · F eat · T torch</div></section>
+          <section class="craft-recipes"><h3>RECIPES</h3><div id="recipes"></div></section>
+        </div>
+      </div>
+    </div>
+    <div id="menu" class="menu-screen" aria-label="Shardfall main menu">
+      <header class="menu-topbar">
+        <div class="menu-mark"><span class="menu-mark-icon"><span>✦</span></span><span>AN ADVENTURE<br>IN THE GLOOM</span></div>
+        <div class="beta-tag"><i></i> BETA · FIRST LIGHT</div>
+      </header>
+      <main class="menu-layout">
+        <section class="menu-copy">
+          <p class="menu-eyebrow">A SURVIVAL TALE · BUILD 0.1.0</p>
+          <h1 class="menu-title">SHARDFALL</h1>
+          <p class="menu-subtitle">The dawn is yours to reclaim.</p>
+          <div class="menu-divider"></div>
+          <p class="menu-description">The Crown of Dawn is broken. Beyond the last campfire, three ancient guardians keep its scattered light. Gather, craft, endure the Gloom—and bring the shards home.</p>
+          <p class="menu-quote">A world shaped by your seed. A night that remembers.</p>
+        </section>
+        <section class="menu-card" aria-label="Play options">
+          <p class="menu-card-label">BEGIN YOUR JOURNEY</p>
+          <div class="menu-actions">
+            <button class="menu-button primary" id="continue"><span>CONTINUE JOURNEY</span><span class="menu-button-note">RESUME</span></button>
+            <button class="menu-button" id="start"><span>NEW WORLD</span><span class="menu-button-note">START FRESH ↗</span></button>
+            <button class="menu-button" id="openMultiplayer"><span>PLAY TOGETHER</span><span class="menu-button-note">ONLINE CO-OP</span></button>
+            <button class="menu-button" id="openSettings"><span>SETTINGS</span><span class="menu-button-note">DISPLAY · AUDIO</span></button>
+          </div>
+          <div class="menu-seed"><label for="seed">WORLD SEED <span style="opacity:.58">· OPTIONAL</span></label><input id="seed" placeholder="Random world" autocomplete="off" maxlength="32" /></div>
+          <p id="records" class="menu-records"></p>
+        </section>
+      </main>
+      <footer class="menu-controls"><span><b class="keycap">WASD</b> MOVE <b class="keycap">CLICK</b> GATHER · FIGHT <b class="keycap">E</b> INVENTORY</span><span class="menu-version">SHARDFALL · BETA 0.1.0</span></footer>
+      <div id="multiplayerPanel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="multiplayerTitle">
+        <section class="multiplayer-card">
+          <header class="multiplayer-head"><div><h2 id="multiplayerTitle">SHARD PARTY</h2><p>Gather your friends. Online play needs HTTPS; the host keeps the world open while you play.</p></div><button id="closeMultiplayer" class="multiplayer-close" aria-label="Close multiplayer">×</button></header>
+          <label class="multiplayer-label" for="playerName">YOUR WANDERER NAME</label>
+          <input id="playerName" class="multiplayer-input" maxlength="18" autocomplete="nickname" placeholder="Wanderer">
+          <div class="multiplayer-actions"><button id="hostRoom" class="multiplayer-action primary" type="button">CREATE A PARTY</button><button id="copyRoom" class="multiplayer-action" type="button">COPY INVITE CODE</button></div>
+          <div id="roomCode" aria-live="polite"></div>
+          <div class="multiplayer-divider">
+            <label class="multiplayer-label" for="joinCode">JOIN A FRIEND'S PARTY</label>
+            <input id="joinCode" class="multiplayer-input" maxlength="80" autocomplete="off" placeholder="Paste the host's invite code">
+            <button id="joinRoom" class="multiplayer-action primary" type="button" style="width:100%;margin-top:10px">JOIN WORLD</button>
+          </div>
+          <p id="multiplayerStatus" aria-live="polite">Up to four players. Share the host's invite code to join.</p>
+        </section>
+      </div>
+      <div id="settingsPanel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <section class="settings-card">
+          <header class="settings-header"><div><h2 id="settingsTitle">SETTINGS</h2><p>Make the Gloom yours.</p></div><button id="closeSettings" class="settings-close" aria-label="Close settings">×</button></header>
+          <label class="setting-row"><span><span class="setting-name">RENDER RESOLUTION</span><span class="setting-help">Choose the canvas render quality.</span></span><span><select id="resolutionSetting" class="setting-control"><option value="1920x1080">1920 × 1080 · High</option><option value="1600x900">1600 × 900 · Balanced</option><option value="1280x720">1280 × 720 · Performance</option><option value="960x540">960 × 540 · Low</option></select><span id="resolutionValue" class="setting-value">1920 × 1080</span></span></label>
+          <label class="setting-row"><span><span class="setting-name">MUSIC</span><span class="setting-help">The quiet song of the wilds.</span></span><span><input id="musicVolume" class="setting-control" type="range" min="0" max="1" step="0.05"><span id="musicVolumeValue" class="setting-value">40%</span></span></label>
+          <label class="setting-row"><span><span class="setting-name">SOUND EFFECTS</span><span class="setting-help">Gathering, combat and discoveries.</span></span><span><input id="sfxVolume" class="setting-control" type="range" min="0" max="1" step="0.05"><span id="sfxVolumeValue" class="setting-value">80%</span></span></label>
+          <div class="settings-actions"><label class="setting-name"><input id="muteSetting" type="checkbox"> MUTE ALL AUDIO</label><button id="fullscreenSetting" class="menu-button" type="button" style="width:auto;min-height:40px;padding:0 12px;font-size:8px">ENTER FULLSCREEN</button></div>
+          <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
+          <p class="settings-footer">Resolution applies immediately and is saved on this device. Fullscreen is optional and may be exited with Esc.</p>
+        </section>
+      </div>
+    </div>
+    <button id="onlineBadge" type="button" aria-label="Copy online party code"></button>
+    <div id="touchControls" class="touch-controls hidden" aria-label="Touch controls">
+      <div class="touch-movement" aria-label="Movement pad">
+        <button type="button" class="touch-button touch-move touch-up" data-touch-dir="w" aria-label="Move up">▲</button>
+        <button type="button" class="touch-button touch-move touch-left" data-touch-dir="a" aria-label="Move left">◀</button>
+        <button type="button" class="touch-button touch-move touch-right" data-touch-dir="d" aria-label="Move right">▶</button>
+        <button type="button" class="touch-button touch-move touch-down" data-touch-dir="s" aria-label="Move down">▼</button>
+      </div>
+      <div class="touch-actions" aria-label="Game actions">
+        <button type="button" id="touchAction" class="touch-button touch-action" aria-label="Gather, attack, or interact">ACT</button>
+        <button type="button" id="touchInventory" class="touch-button" aria-label="Open inventory">BAG</button>
+        <button type="button" id="touchEat" class="touch-button" aria-label="Eat food">EAT</button>
+        <button type="button" id="touchTorch" class="touch-button" aria-label="Toggle torch">TORCH</button>
+        <button type="button" id="touchFire" class="touch-button" aria-label="Place campfire">FIRE</button>
+        <button type="button" id="touchWall" class="touch-button" aria-label="Place wall">WALL</button>
+        <button type="button" id="touchWorkbench" class="touch-button" aria-label="Place workbench">BENCH</button>
+        <button type="button" id="touchForge" class="touch-button" aria-label="Place forge">FORGE</button>
+        <button type="button" id="touchMute" class="touch-button" aria-label="Toggle audio mute">MUTE</button>
+      </div>
+    </div>
+    <div id="end" class="overlay hidden">
+      <h1 id="endTitle">YOU PERISHED</h1>
+      <p id="endText"></p>
+      <div style="display:flex;gap:14px"><button class="btn hidden" id="ascend">ASCEND (KEEP PLAYING)</button><button class="btn" id="again">NEW WORLD</button></div>
+    </div>
+    <div id="levelup" class="overlay hidden">
+      <h1 style="color:#ffe08a">LEVEL UP!</h1>
+      <p id="lvText">Choose a blessing.</p>
+      <div id="perks" style="display:flex;gap:18px"></div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
