@@ -18,24 +18,54 @@
             height: 100%; 
             border: none; 
         }
+        /* Permanent 24/7 Bottom-Right Floating Button */
+        .donate-corner {
+            position: fixed; 
+            right: 24px; 
+            bottom: 24px; 
+            z-index: 999;
+        }
+        .donate-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            background: linear-gradient(135deg, #f0d99d, #c59a50);
+            color: #211a13;
+            border: 2px solid #efcf85;
+            font-family: 'Press Start 2P', monospace, sans-serif;
+            font-size: 9px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            text-decoration: none;
+            transition: transform 0.15s ease;
+        }
+        .donate-btn:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
-    <!-- Replace the src link below with your actual Rosebud Embed URL -->
+    <!-- The Live Rosebud Game Iframe -->
     <iframe id="game-frame" src="https://rosebud.ai/d/wildbound-156" allow="fullscreen; autoplay; clipboard-write" allowfullscreen="true" tabindex="0"></iframe>
 
+    <!-- Permanent Floating Buy Me a Coffee Button -->
+    <div class="donate-corner">
+        <a href="https://buymeacoffee.com/VividresqueStudios" target="_blank" class="donate-btn">
+            <span>SUPPORT STUDIO</span>
+            <span>❤️</span>
+        </a>
+    </div>
+
     <script>
-        // This forces the browser to focus on the game immediately so it doesn't ignore your clicks or keyboard inputs on the start screen.
         window.onload = function() {
             const gameFrame = document.getElementById('game-frame');
-            if(gameFrame) {
-                gameFrame.focus();
-            }
+            if(gameFrame) gameFrame.focus();
         };
-        
-        // Re-focus if the user clicks the black background by accident
-        document.body.addEventListener('click', function() {
-            document.getElementById('game-frame').focus();
+        document.body.addEventListener('click', function(e) {
+            if(!e.target.closest('.donate-btn')) {
+                document.getElementById('game-frame', '_blank').focus();
+            }
         });
     </script>
 </body>
