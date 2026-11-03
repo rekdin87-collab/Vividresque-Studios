@@ -1,7 +1,0 @@
-name = "vividresque-studios"
-main = "worker.js"
-compatibility_date = "2026-01-01"
-
-[[kv_namespaces]]
-binding = "LOBBIES"
-id = "ef22a1012b5e476589e28500d9cf8a7a"
